@@ -7,7 +7,7 @@ import { CategorySelector } from "./components/CategorySelector";
 
 function App(): React.ReactElement {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const { articles, loading, fetchMoreArticles, fetchArticles } = useWikiArticles(selectedCategories);
+  const { articles, loading, fetchArticles } = useWikiArticles(selectedCategories);
   const observerTarget = useRef(null);
 
   const handleObserver = useCallback(

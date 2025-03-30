@@ -137,7 +137,7 @@ export function CategorySelector({ onCategoriesSelected }: CategorySelectorProps
                     onClick={() => handleAddCategory(category)}
                     className="p-2 hover:bg-gray-700 cursor-pointer rounded text-sm"
                   >
-                    {category}
+                    {category.replace(/^Category:/, "")}
                   </li>
                 ))}
               </ul>
@@ -163,7 +163,7 @@ export function CategorySelector({ onCategoriesSelected }: CategorySelectorProps
                   key={category}
                   className="flex items-center bg-blue-600/30 text-blue-100 px-2 py-1 rounded-full text-sm whitespace-nowrap"
                 >
-                  <span>{category}</span>
+                  <span>{category.replace(/^Category:/, "")}</span>
                   <button
                     onClick={() => handleRemoveCategory(category)}
                     className="ml-1.5 text-blue-200 hover:text-white p-0.5 rounded-full hover:bg-white/20"
