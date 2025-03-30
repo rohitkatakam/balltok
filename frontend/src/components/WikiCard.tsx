@@ -1,6 +1,5 @@
-import { Share2, Heart } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { useState } from 'react';
-import { useLikedArticles } from '../contexts/LikedArticlesContext';
 
 export interface WikiArticle {
     title: string;
@@ -21,7 +20,6 @@ interface WikiCardProps {
 
 export function WikiCard({ article }: WikiCardProps) {
     const [imageLoaded, setImageLoaded] = useState(false);
-    const { toggleLike, isLiked } = useLikedArticles();
 
     // Add debugging log
     console.log('Article data:', {
@@ -49,7 +47,7 @@ export function WikiCard({ article }: WikiCardProps) {
     };
 
     return (
-        <div className="h-screen w-full flex items-center justify-center snap-start relative" onDoubleClick={() => toggleLike(article)}>
+        <div className="h-screen w-full flex items-center justify-center snap-start relative">
             <div className="h-full w-full relative">
                 {article.thumbnail ? (
                     <div className="absolute inset-0">
@@ -86,18 +84,6 @@ export function WikiCard({ article }: WikiCardProps) {
                         </a>
                         <div className="flex gap-2">
                             <button
-                                onClick={() => toggleLike(article)}
-                                className={`p-2 rounded-full backdrop-blur-sm transition-colors ${isLiked(article.pageid)
-                                    ? 'bg-red-500 hover:bg-red-600'
-                                    : 'bg-white/10 hover:bg-white/20'
-                                    }`}
-                                aria-label="Like article"
-                            >
-                                <Heart
-                                    className={`w-5 h-5 ${isLiked(article.pageid) ? 'fill-white' : ''}`}
-                                />
-                            </button>
-                            <button
                                 onClick={handleShare}
                                 className="p-2 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors"
                                 aria-label="Share article"
@@ -116,6 +102,16 @@ export function WikiCard({ article }: WikiCardProps) {
                         Read more →
                     </a>
                 </div>
+                <a
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()} // Prevent card click
+                    className="absolute bottom-4 right-4 p-2 bg-black/40 text-white/70 rounded-full hover:bg-black/60 hover:text-white transition-colors z-20"
+                    aria-label="Read on Wikipedia"
+                >
+                    <Share2 className="w-6 h-6" />
+                </a>
             </div>
         </div>
     );
