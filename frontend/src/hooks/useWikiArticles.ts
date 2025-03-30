@@ -2,14 +2,6 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useLocalization } from "./useLocalization";
 import type { WikiArticle } from "../components/WikiCard";
 
-// TODO: Replace these placeholders with actual Wikipedia category names
-// e.g., "Category:Active NBA players", "Category:National Football League current players"
-const TARGET_CATEGORIES: string[] = [
-  "Category:American football",
-  // "Category:History of North America",
-  // "Category:Applied mathematics",
-];
-
 // --- Number of articles to fetch details for in each batch ---
 const BATCH_SIZE = 40; // Increased batch size
 // --- Number of subcategories to sample and fetch pages from ---
@@ -82,7 +74,22 @@ type PageDetailsApiResponse = {
   error?: ApiError;
 }
 
-export function useWikiArticles() {
+// Utility function to shuffle an array in place (Fisher-Yates)
+const shuffleArray = <T,>(array: T[]): T[] => {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]]; // Swap elements
+  }
+  return array;
+};
+
+interface UseWikiArticlesResult {
+  articles: WikiArticle[];
+  loading: boolean;
+  fetchArticles: () => void;
+}
+
+export function useWikiArticles(targetCategories: string[]): UseWikiArticlesResult {
   const [articles, setArticles] = useState<WikiArticle[]>([]);
   const [loading, setLoading] = useState(false);
   const [buffer, setBuffer] = useState<WikiArticle[]>([]);
@@ -248,13 +255,13 @@ export function useWikiArticles() {
 
   // Main orchestration logic
   const fetchAndProcessArticles = useCallback(async (forBuffer = false) => {
-    if (loading || TARGET_CATEGORIES.length === 0) return;
+    // Only run if not loading and categories are provided
+    if (loading || targetCategories.length === 0) return;
     setLoading(true);
 
     try {
-      // --- Start of New Fetch Logic ---
-      // 1. Fetch direct pages and subcategories for all TARGET_CATEGORIES
-      const initialFetchPromises = TARGET_CATEGORIES.flatMap(catName => [
+      // 1. Fetch direct pages and subcategories for all targetCategories
+      const initialFetchPromises = targetCategories.flatMap(catName => [
         fetchCategoryMembers(catName, 'page'),
         fetchCategoryMembers(catName, 'subcat')
       ]);
@@ -262,34 +269,37 @@ export function useWikiArticles() {
 
       // 2. Aggregate direct page IDs and all subcategory names
       const directPageIds: number[] = [];
-      const allSubcatNames: string[] = [];
-      TARGET_CATEGORIES.forEach(catName => {
+      let allSubcatNames: string[] = []; // Use let for reassignment after shuffle
+      targetCategories.forEach(catName => {
         const pages = categoryPageIds.current[catName];
         const subcats = categorySubcats.current[catName];
-        if (Array.isArray(pages)) directPageIds.push(...pages);
+        // Shuffle direct pages for this category before adding
+        if (Array.isArray(pages)) directPageIds.push(...shuffleArray([...pages])); 
         if (Array.isArray(subcats)) allSubcatNames.push(...subcats);
       });
 
-      // 3. Sample subcategories
-      const uniqueSubcats = [...new Set(allSubcatNames)];
-      const sampledSubcats = uniqueSubcats
-        .sort(() => 0.5 - Math.random()) // Shuffle
-        .slice(0, SUBCAT_SAMPLE_SIZE);
+      // --- Add more randomness --- 
+      // 3. Shuffle the collected subcategory names before sampling
+      allSubcatNames = shuffleArray(allSubcatNames);
+      console.log("Shuffled Subcategories:", allSubcatNames.slice(0, SUBCAT_SAMPLE_SIZE)); // Log sampled subcats
 
-      // 4. Fetch pages for sampled subcategories
-      const subcatPageFetchPromises = sampledSubcats.map(subcatName =>
+      // 4. Sample subcategories and fetch their pages
+      const subcatSample = allSubcatNames.slice(0, SUBCAT_SAMPLE_SIZE);
+
+      // 5. Fetch pages for sampled subcategories
+      const subcatPageFetchPromises = subcatSample.map(subcatName =>
         fetchCategoryMembers(subcatName, 'page')
       );
       await Promise.all(subcatPageFetchPromises);
 
-      // 5. Aggregate page IDs from sampled subcategories
+      // 6. Aggregate page IDs from sampled subcategories
       const subcatPageIds: number[] = [];
-      sampledSubcats.forEach(subcatName => {
+      subcatSample.forEach(subcatName => {
         const pages = categoryPageIds.current[subcatName]; // Use the same cache
         if (Array.isArray(pages)) subcatPageIds.push(...pages);
       });
 
-      // 6. Combine all page IDs and make unique
+      // 7. Combine all page IDs and make unique
       const allAvailableIds = [...new Set([...directPageIds, ...subcatPageIds])];
 
       if (allAvailableIds.length === 0) {
@@ -298,7 +308,7 @@ export function useWikiArticles() {
         return;
       }
 
-      // 7. Select random, *unused* IDs from the combined pool
+      // 8. Select random, *unused* IDs from the combined pool
       let potentialIds = allAvailableIds.filter(id => !shownPageIds.current.has(id));
 
       // If all available IDs have been shown, reset the shown set
@@ -309,7 +319,7 @@ export function useWikiArticles() {
       }
 
       // Shuffle potential IDs and take a batch
-      const shuffledIds = potentialIds.sort(() => 0.5 - Math.random());
+      const shuffledIds = shuffleArray([...potentialIds]);
       const idsToFetch = shuffledIds.slice(0, BATCH_SIZE);
 
       if (idsToFetch.length === 0) {
@@ -318,10 +328,10 @@ export function useWikiArticles() {
         return;
       }
 
-      // 8. Fetch details for the selected IDs
+      // 9. Fetch details for the selected IDs
       const newArticles = await fetchArticleDetails(idsToFetch);
 
-      // 9. Update global shown IDs set and state
+      // 10. Update global shown IDs set and state
       idsToFetch.forEach(id => shownPageIds.current.add(id));
 
       // --- End of New Fetch Logic ---
@@ -340,7 +350,7 @@ export function useWikiArticles() {
     } finally {
       setLoading(false);
     }
-  }, [loading, fetchCategoryMembers, fetchArticleDetails]); // Updated dependencies
+  }, [loading, targetCategories, fetchCategoryMembers, fetchArticleDetails]); // Add targetCategories dependency
 
   // Adapted function exposed to the component
   const getMoreArticles = useCallback(() => {
@@ -354,11 +364,15 @@ export function useWikiArticles() {
     }
   }, [buffer, fetchAndProcessArticles]);
 
-  // Initial fetch on mount
+  // Initial fetch effect - run when categories are provided and not already loading
   useEffect(() => {
-    fetchAndProcessArticles(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only once on mount
+    // Only fetch if categories are present, articles/buffer are empty, and not loading
+    if (targetCategories.length > 0 && articles.length === 0 && buffer.length === 0 && !loading) {
+      fetchAndProcessArticles(false);
+    }
+    // We want this effect to re-run if the categories themselves change.
+    // The check inside fetchAndProcessArticles prevents fetching if already loading.
+  }, [targetCategories, articles.length, buffer.length, loading, fetchAndProcessArticles]);
 
   return { articles, loading, fetchArticles: getMoreArticles };
 }

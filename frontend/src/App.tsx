@@ -5,11 +5,13 @@ import { Analytics } from "@vercel/analytics/react";
 import { LanguageSelector } from "./components/LanguageSelector";
 import { useLikedArticles } from "./contexts/LikedArticlesContext";
 import { useWikiArticles } from "./hooks/useWikiArticles";
+import { CategorySelector } from "./components/CategorySelector";
 
 function App() {
   const [showAbout, setShowAbout] = useState(false);
   const [showLikes, setShowLikes] = useState(false);
-  const { articles, loading, fetchArticles } = useWikiArticles();
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const { articles, loading, fetchArticles } = useWikiArticles(selectedCategories);
   const { likedArticles, toggleLike } = useLikedArticles();
   const observerTarget = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,21 +27,23 @@ function App() {
   );
 
   useEffect(() => {
+    const currentObserverTarget = observerTarget.current;
     const observer = new IntersectionObserver(handleObserver, {
       threshold: 0.1,
       rootMargin: "100px",
     });
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
+    if (currentObserverTarget) {
+      observer.observe(currentObserverTarget);
     }
 
-    return () => observer.disconnect();
+    return () => {
+      if (currentObserverTarget) {
+        observer.unobserve(currentObserverTarget);
+      }
+      observer.disconnect();
+    };
   }, [handleObserver]);
-
-  useEffect(() => {
-    fetchArticles();
-  }, []);
 
   const filteredLikedArticles = likedArticles.filter(
     (article) =>
@@ -70,6 +74,18 @@ function App() {
 
   return (
     <div className="h-screen w-full bg-black text-white overflow-y-scroll snap-y snap-mandatory hide-scroll">
+      {selectedCategories.length === 0 && (
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-gray-800 p-4 rounded shadow-lg text-center">
+          <p className="mb-3">No categories selected. Click to load articles:</p>
+          <button
+            onClick={() => setSelectedCategories(["Category:Basketball", "Category:Nutrition"])}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          >
+            Load Basketball/NBA Articles
+          </button>
+        </div>
+      )}
+
       <div className="fixed top-4 left-4 z-50">
         <button
           onClick={() => window.location.reload()}
