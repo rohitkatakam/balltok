@@ -144,11 +144,11 @@ export function CategorySelector({ onCategoriesSelected }: CategorySelectorProps
           )}
           {/* Display message when search has run but found nothing */}
           {searchTerm && !searchLoading && apiSearchResults.length === 0 && (
-              <p className="text-sm text-white/60 p-2">No results found for "{searchTerm}".</p>
+              <p className="text-sm text-white/60 p-2">No results found for '{searchTerm}'.</p>
           )}
            {/* Display placeholder/instruction when input is empty or hasn't yielded results yet */}
           {!searchTerm && (
-              <p className=\"text-sm text-white/50 p-2\">Type above to search for categories.</p>
+              <p className="text-sm text-white/50 p-2">Type above to search for categories.</p>
           )}
         </div>
 
